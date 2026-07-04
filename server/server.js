@@ -49,16 +49,41 @@ app.use("/api/status", (req, res) => res.send("Server is live"));
 app.use("/api/auth", userRouter);
 app.use("/api/messages", messageRouter);
 
-// Connect to MongoDB
-await connectDB();
+// Connect to MongoDB in the background so the API can still start
+const initializeDatabase = async () => {
+  try {
+    await connectDB();
+  } catch (error) {
+    console.warn("MongoDB unavailable at startup:", error.message);
+  }
+};
+
+await initializeDatabase();
+
+const startServer = (port) => {
+  server.once("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      const nextPort = port + 1;
+      console.warn(`Port ${port} is busy. Trying ${nextPort} instead.`);
+      server.removeAllListeners("error");
+      startServer(nextPort);
+      return;
+    }
+
+    console.error(error);
+    process.exit(1);
+  });
+
+  server.listen(port, () => {
+    console.log(
+      `Server is running on PORT: ${port} => http://localhost:${port}/api/status`
+    );
+  });
+};
 
 if (process.env.NODE_ENV !== "production") {
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () =>
-    console.log(
-      `Server is running on PORT: ${PORT} => http://localhost:${PORT}/api/status`
-    )
-  );
+  const PORT = Number(process.env.PORT) || 5001;
+  startServer(PORT);
 }
 
 // Export server for Vercel

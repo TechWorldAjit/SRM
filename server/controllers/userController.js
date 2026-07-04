@@ -2,12 +2,15 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import { connectDB } from "../lib/db.js";
 
 // Signup a new user
 export const signup = async (req, res) => {
   const { fullName, email, password, bio } = req.body;
 
   try {
+    await connectDB();
+
     if (!fullName || !email || !password || !bio) {
       return res.json({ success: false, message: "Missing Details" });
     }
@@ -46,8 +49,14 @@ export const signup = async (req, res) => {
 // Controller to login a user
 export const login = async (req, res) => {
   try {
+    await connectDB();
+
     const { email, password } = req.body;
     const userData = await User.findOne({ email });
+
+    if (!userData) {
+      return res.json({ success: false, message: "Invalid credentials" });
+    }
 
     const isPasswordCorrect = await bcrypt.compare(password, userData.password);
 
